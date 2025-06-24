@@ -1,26 +1,29 @@
-import subprocess
+import sys
+import ollama
 
-def generate_ai_feedback(commit_message: str, commit_diff: str) -> str:
-    prompt = f"""
-Aşağıda bir commit mesajı ve kod farkı (diff) verilmiştir.
+commit_message = sys.argv[1]
+commit_diff = sys.argv[2]
+
+prompt = f"""
+Sen bir yapay zeka kod inceleyicisisin.
+
+Aşağıda bir commit mesajı ve ona ait kod farkı (diff) verilecektir.
+
+Senin görevin:
+- Eğer commit’te herhangi bir sorun, kötü pratik ya da geliştirilebilecek bir yer varsa, sadece o kısmı yaz.
+- Eğer bir problem yoksa yalnızca "Sorun tespit edilmedi." yaz.
 
 Commit mesajı:
 {commit_message}
 
-Kod farkı:
+Kod diff:
 {commit_diff}
-
-Yapay zeka olarak bu commit hakkında yorum yap:
-1. Ne amaçlanmış?
-2. Riskli bir değişiklik var mı?
-3. Kod daha iyi nasıl yazılabilir?
-4. Geliştiriciye geri bildirim ver (Türkçe olarak).
 """
 
-    result = subprocess.run(
-        ["ollama", "run", "llama2", prompt],
-        capture_output=True,
-        text=True
-    )
-
-    return result.stdout.strip()
+try:
+    response = ollama.chat(model='llama3', messages=[
+        {"role": "user", "content": prompt}
+    ])
+    print(response['message']['content'])
+except Exception as e:
+    print(f"⚠️ AI analiz başarısız: {e}")

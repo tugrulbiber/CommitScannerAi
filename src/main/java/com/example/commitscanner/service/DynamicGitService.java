@@ -1,3 +1,4 @@
+
 package com.example.commitscanner.service;
 
 import org.eclipse.jgit.api.Git;
@@ -6,8 +7,10 @@ import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
+import org.eclipse.jgit.diff.RawTextComparator;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -15,6 +18,7 @@ import java.io.File;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -42,6 +46,19 @@ public class DynamicGitService {
             System.err.println("Failed to get commit message: " + e.getMessage());
         }
         return null;
+    }
+
+    public List<String> getLastCommitHashes(String repoPath, int count) {
+        List<String> hashes = new ArrayList<>();
+        try (Git git = Git.open(new File(repoPath))) {
+            Iterable<RevCommit> logs = git.log().setMaxCount(count).call();
+            for (RevCommit commit : logs) {
+                hashes.add(commit.getName());
+            }
+        } catch (Exception e) {
+            System.err.println("Commit listesi alınamadı: " + e.getMessage());
+        }
+        return hashes;
     }
 
     public String getLatestCommitAuthorEmail(String repoPath) {
@@ -126,5 +143,58 @@ public class DynamicGitService {
             System.err.println("Failed to get diff: " + e.getMessage());
             return "Diff alınamadı.";
         }
+    }
+
+    public String getCommitMessageByHash(String repoPath, String commitHash) {
+        try (Git git = Git.open(new File(repoPath))) {
+            ObjectId id = ObjectId.fromString(commitHash);
+            RevWalk walk = new RevWalk(git.getRepository());
+            RevCommit commit = walk.parseCommit(id);
+            return commit.getShortMessage();
+        } catch (Exception e) {
+            System.err.println("Commit mesajı alınamadı: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public String getCommitAuthorNameByHash(String repoPath, String commitHash) {
+        try (Git git = Git.open(new File(repoPath))) {
+            ObjectId id = ObjectId.fromString(commitHash);
+            RevWalk walk = new RevWalk(git.getRepository());
+            RevCommit commit = walk.parseCommit(id);
+            return commit.getAuthorIdent().getName();
+        } catch (Exception e) {
+            System.err.println("Author adı alınamadı: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public String getCommitDiffByHash(String repoPath, String commitHash) {
+        try (Git git = Git.open(new File(repoPath))) {
+            Repository repo = git.getRepository();
+            ObjectId commitId = repo.resolve(commitHash);
+            RevWalk walk = new RevWalk(repo);
+            RevCommit commit = walk.parseCommit(commitId);
+            RevCommit parent = commit.getParentCount() > 0 ? walk.parseCommit(commit.getParent(0).getId()) : null;
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            DiffFormatter df = new DiffFormatter(out);
+            df.setRepository(repo);
+            df.setDiffComparator(RawTextComparator.DEFAULT);
+            df.setDetectRenames(true);
+
+            if (parent != null) {
+                List<DiffEntry> diffs = df.scan(parent.getTree(), commit.getTree());
+                for (DiffEntry diff : diffs) {
+                    df.format(diff);
+                }
+            }
+
+            df.close();
+            return out.toString();
+        } catch (Exception e) {
+            System.err.println("Diff alınamadı: " + e.getMessage());
+        }
+        return "";
     }
 }

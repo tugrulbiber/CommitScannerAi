@@ -2,7 +2,6 @@ package com.example.commitscanner.scheduler;
 
 import com.example.commitscanner.entity.CommitRecord;
 import com.example.commitscanner.service.*;
-import com.example.commitscanner.service.AutoRepoManager;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -18,8 +17,10 @@ public class MultiRepoScheduler {
     private final AiAnalyzerService aiAnalyzerService;
 
     private final List<String> repoUrls = List.of(
-            "https://github.com/tugrulbiber/leave_management_ai"
-            // buraya istediğin kadar repo ekleyebilirsin
+            "https://github.com/tugrulbiber/leave_management_ai",
+            "https://github.com/tugrulbiber/CommitScannerAi",
+            "https://github.com/ozcangunatis/commitscanner",
+            "https://github.com/ozcangunatis/management-backend"
     );
 
     public MultiRepoScheduler(DynamicGitService gitService,
@@ -32,7 +33,7 @@ public class MultiRepoScheduler {
         this.aiAnalyzerService = aiAnalyzerService;
     }
 
-    @Scheduled(fixedRate = 60000) // her dakika test için
+    @Scheduled(fixedRate = 60000) // test için her dakika
     public void scanAllRepos() {
         AutoRepoManager.prepareRepositories(repoUrls);
 
@@ -40,41 +41,46 @@ public class MultiRepoScheduler {
             String repoName = extractRepoName(url);
             String repoPath = "repos/" + repoName;
 
-            String commitHash = gitService.getLatestCommitHash(repoPath);
-            if (commitHash == null) {
+            List<String> commitHashes = gitService.getLastCommitHashes(repoPath, 3); // son 3 commit
+            if (commitHashes == null || commitHashes.isEmpty()) {
                 System.out.println("❌ Commit bulunamadı: " + repoPath);
                 continue;
             }
 
-            // Commit bilgilerini al
-            String author = gitService.getLatestCommitAuthorName(repoPath);
-            String email = gitService.getLatestCommitAuthorEmail(repoPath);
-            String message = gitService.getLatestCommitMessage(repoPath);
-            String diff = gitService.getDiff(repoPath, commitHash);
+            for (String commitHash : commitHashes) {
 
-            // AI feedback al
-            String feedback = aiAnalyzerService.analyzeCommit(message, diff);
-            boolean hasIssue = feedback.toLowerCase().contains("risk")
-                    || feedback.toLowerCase().contains("hata")
-                    || feedback.toLowerCase().contains("daha iyi");
+                if (commitService.existsByCommitHash(commitHash)) {
+                    System.out.println("⏭ Commit zaten işlenmiş, atlanıyor: " + commitHash);
+                    continue;
+                }
 
-            // Mail gönder
-            emailService.sendCommitNotification(author, email, commitHash, message + "\n\nAI Feedback:\n" + feedback);
+                String author = gitService.getCommitAuthorNameByHash(repoPath, commitHash);
+                String message = gitService.getCommitMessageByHash(repoPath, commitHash);
+                String diff = gitService.getCommitDiffByHash(repoPath, commitHash);
+                String email = "turulbiber@gmail.com"; // ileride dinamik yapılabilir
 
-            // Commit kaydet
-            CommitRecord record = new CommitRecord();
-            record.setCommitHash(commitHash);
-            record.setAuthorName(author);
-            record.setAuthorEmail(email);
-            record.setMessage(message);
-            record.setCommitDate(LocalDateTime.now());
-            record.setHasIssue(hasIssue);
-            record.setAiFeedback(feedback);
-            record.setScannedAt(LocalDateTime.now());
+                String feedback = aiAnalyzerService.analyzeCommit(message, diff);
+                boolean hasIssue = feedback.toLowerCase().contains("risk")
+                        || feedback.toLowerCase().contains("hata")
+                        || feedback.toLowerCase().contains("daha iyi");
 
-            commitService.saveCommit(record);
+                emailService.sendCommitNotification(author, email, commitHash,
+                        message + "\n\nAI Feedback:\n" + feedback);
 
-            System.out.println("✅ " + repoName + " → Commit işlendi: " + commitHash);
+                CommitRecord record = new CommitRecord();
+                record.setCommitHash(commitHash);
+                record.setAuthorName(author);
+                record.setAuthorEmail(email);
+                record.setMessage(message);
+                record.setCommitDate(LocalDateTime.now());
+                record.setHasIssue(hasIssue);
+                record.setAiFeedback(feedback);
+                record.setScannedAt(LocalDateTime.now());
+
+                commitService.saveCommit(record);
+
+                System.out.println("✅ " + repoName + " → Commit işlendi: " + commitHash);
+            }
         }
     }
 

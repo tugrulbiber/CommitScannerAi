@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class CommitService {
     private final CommitRecordRepository commitRecordRepository;
+
     public CommitService(CommitRecordRepository commitRecordRepository) {
         this.commitRecordRepository = commitRecordRepository;
     }
@@ -15,4 +16,8 @@ public class CommitService {
         commitRecordRepository.save(commitRecord);
     }
 
+    // ✅ Commit hash veritabanında var mı kontrol et
+    public boolean existsByCommitHash(String commitHash) {
+        return commitRecordRepository.existsByCommitHash(commitHash);
+    }
 }
