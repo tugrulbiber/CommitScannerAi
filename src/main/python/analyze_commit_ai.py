@@ -1,5 +1,7 @@
 import sys
 import ollama
+import re
+import traceback
 
 commit_message = sys.argv[1]
 commit_diff = sys.argv[2]
@@ -20,10 +22,19 @@ Kod diff:
 {commit_diff}
 """
 
+def sanitize_text(text):
+    # Windows ve Unix yol temizleme
+    text = re.sub(r'[A-Z]:[\\/][^\s\n\r"\']+', '[local path]', text)
+    text = re.sub(r'(\.\/|\.\.\/|\/)[^\s\n\r"\']+', '[local path]', text)
+    return text
+
 try:
     response = ollama.chat(model='llama3', messages=[
         {"role": "user", "content": prompt}
     ])
-    print(response['message']['content'])
+    content = response['message']['content']
+    print(sanitize_text(content))
 except Exception as e:
-    print(f"⚠️ AI analiz başarısız: {e}")
+    tb = traceback.format_exc()
+    clean_tb = sanitize_text(tb)
+    print(f"⚠️ AI analiz başarısız:\n{clean_tb}")

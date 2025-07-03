@@ -28,13 +28,18 @@ public class EmailService {
         }
     }
 
-    // Commit bildirimi için özel mail gönderme metodu
-    public void sendCommitNotification(String author, String email, String commitHash, String message) {
-        String subject = "Suspicious Commit Detected";
+    public void sendCommitNotification(String author, String email, String commitHash, String message,
+                                       String aiFeedback, String repoName, String fileName, int lineNumber) {
+        String subject = " Suspicious Commit Detected";
+
         String body = "Hello " + author + ",\n\n" +
                 "A potentially problematic commit was detected:\n\n" +
-                "Commit ID: " + commitHash + "\n" +
-                "Message: " + message + "\n\n" +
+                " Repository: " + repoName + "\n" +
+                " File: " + fileName + "\n" +
+                (lineNumber > 0 ? "📌 Line: " + lineNumber + "\n" : "") +
+                " Commit ID: " + commitHash + "\n" +
+                " Message: " + message + "\n\n" +
+                " AI Feedback:\n" + aiFeedback + "\n\n" +
                 "Please double-check this commit.\n\n" +
                 "Regards,\nCommitScanner Bot";
 
@@ -42,3 +47,5 @@ public class EmailService {
     }
 
 }
+
+
