@@ -7,28 +7,33 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+
 @Service
 public class EmailService {
 
     @Autowired
     private JavaMailSender mailSender;
 
-    // UTF-8 destekli mail gönderme metodu
     public void sendSimpleEmail(String to, String subject, String text) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    mimeMessage,
+                    false,
+                    StandardCharsets.UTF_8.name() // kritik!
+            );
 
-            helper.setFrom(new InternetAddress("turulbiber@gmail.com", "CommitScanner Bot", "UTF-8"));
+            helper.setFrom(new InternetAddress("turulbiber@gmail.com", "CommitScanner Bot", StandardCharsets.UTF_8.name()));
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(text, false); // false = plain text, true = HTML
+            helper.setText(text, false); // plain text, HTML değil
 
             mailSender.send(mimeMessage);
 
-            System.out.println("✅ Email has been sent to: " + to);
+            System.out.println("✅ Mail gönderildi: " + to);
         } catch (Exception e) {
-            System.out.println("❌ Failed to send email. Reason: " + e.getMessage());
+            System.out.println("❌ Mail gönderilemedi: " + e.getMessage());
         }
     }
 
