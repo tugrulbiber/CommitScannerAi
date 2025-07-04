@@ -105,6 +105,7 @@ public class MultiRepoScheduler {
 
     private String extractRepoName(String url) {
         return url.substring(url.lastIndexOf('/') + 1).replace(".git", "");
-    }}
+    }
+}
 
 

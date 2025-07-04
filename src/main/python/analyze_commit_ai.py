@@ -1,10 +1,27 @@
 import sys
-import ollama
 import re
-import traceback
+import ollama
 
-commit_message = sys.argv[1]
-commit_diff = sys.argv[2]
+if len(sys.argv) < 3:
+    # Argüman yoksa test için sabit değerler kullan
+    commit_message = "Test commit mesajı"
+    commit_diff = """
+    diff --git a/src/Main.java b/src/Main.java
+    index e69de29..4b825dc 100644
+    --- a/src/Main.java
+    +++ b/src/Main.java
+    @@ -0,0 +1,2 @@
+    +public class Main {
+    +    // test commit
+    }
+    """
+else:
+    commit_message = sys.argv[1]
+    commit_diff = sys.argv[2]
+
+# Local pathleri temizle (Windows + Unix)
+commit_diff = re.sub(r'[A-Z]:\\\\[^\\s\n\r]+', '[local path]', commit_diff)
+commit_diff = re.sub(r'(/[\w./\-]+)+', '[repo path]', commit_diff)
 
 prompt = f"""
 Sen bir yapay zeka kod inceleyicisisin.
@@ -22,19 +39,17 @@ Kod diff:
 {commit_diff}
 """
 
-def sanitize_text(text):
-    # Windows ve Unix yol temizleme
-    text = re.sub(r'[A-Z]:[\\/][^\s\n\r"\']+', '[local path]', text)
-    text = re.sub(r'(\.\/|\.\.\/|\/)[^\s\n\r"\']+', '[local path]', text)
-    return text
-
 try:
     response = ollama.chat(model='llama3', messages=[
         {"role": "user", "content": prompt}
     ])
-    content = response['message']['content']
-    print(sanitize_text(content))
+    feedback = response['message']['content']
+
+    # AI çıktısındaki local pathleri temizle
+    feedback = re.sub(r'[A-Z]:\\\\[^\\s\n\r]+', '[local path]', feedback)
+    feedback = re.sub(r'(/[\w./\-]+)+', '[repo path]', feedback)
+
+    print(feedback)
+
 except Exception as e:
-    tb = traceback.format_exc()
-    clean_tb = sanitize_text(tb)
-    print(f"⚠️ AI analiz başarısız:\n{clean_tb}")
+    print(f" AI analiz başarısız: {e}")
